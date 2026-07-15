@@ -55,25 +55,20 @@ jobs:
         id: check
         shell: pwsh
         run: |
+          $releaseTag = "mower-${{ matrix.branch }}-win64"
+          $currentSha = "${{ github.sha }}"
+          $apiUrl = "https://api.github.com/repos/$env:GITHUB_REPOSITORY/releases/tags/$releaseTag"
           try {
-            $releaseTag = "mower-${{ matrix.branch }}-win64"
-            $currentSha = "${{ github.sha }}"
-
-            $release = gh release view $releaseTag --json body 2>$null
-            if ($LASTEXITCODE -eq 0) {
-              $json = $release | ConvertFrom-Json
-              $lastSha = $json.body -replace '.*@', ''
-              if ($lastSha -eq $currentSha) {
-                echo "skip=true" >> $env:GITHUB_OUTPUT
-                Write-Host "✅ 上游 ${{ matrix.branch }} 无新提交 ($currentSha)，跳过构建"
-                exit 0
-              }
-              Write-Host "📦 上游 ${{ matrix.branch }} 有更新: $lastSha → $currentSha"
-            } else {
-              Write-Host "🆕 首次构建 ${{ matrix.branch }}"
+            $response = Invoke-RestMethod -Uri $apiUrl -Headers @{ Authorization = "Bearer $env:GH_TOKEN" }
+            $lastSha = $response.body -replace '.*@', ''
+            if ($lastSha -eq $currentSha) {
+              echo "skip=true" >> $env:GITHUB_OUTPUT
+              Write-Host "✅ 上游 ${{ matrix.branch }} 无新提交 ($currentSha)，跳过构建"
+              exit 0
             }
+            Write-Host "📦 上游 ${{ matrix.branch }} 有更新: $lastSha → $currentSha"
           } catch {
-            Write-Host "⚠️ 无法获取 Release 信息，按首次构建处理"
+            Write-Host "🆕 首次构建 ${{ matrix.branch }} 或查询出错"
           }
           echo "skip=false" >> $env:GITHUB_OUTPUT
 
