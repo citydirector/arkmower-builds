@@ -18,6 +18,9 @@ on:
 permissions:
   contents: write
 
+env:
+  PYTHONIOENCODING: utf-8
+
 jobs:
   build:
     strategy:
@@ -79,7 +82,9 @@ jobs:
 
       - run: pyinstaller webui_zip.spec
 
-      - run: python scripts/fix_runtime_dlls.py
+      - name: Fix runtime DLLs
+        if: ${{ hashFiles('scripts/fix_runtime_dlls.py') != '' }}
+        run: python scripts/fix_runtime_dlls.py
 
       - shell: pwsh
         run: |
