@@ -23,6 +23,7 @@ jobs:
     strategy:
       matrix:
         branch: [main, dev]
+      fail-fast: false
     runs-on: windows-latest
     steps:
       # Skip this matrix branch if user selected only one branch
@@ -37,8 +38,12 @@ jobs:
         with:
           repository: ArkMowers/arknights-mower
           ref: ${{ matrix.branch }}
-          submodules: recursive
           fetch-depth: 1
+
+      - name: Init submodules
+        run: |
+          git submodule init
+          git submodule update
 
       - id: version
         shell: pwsh
@@ -52,7 +57,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
           cache-dependency-path: ui/package-lock.json
 
