@@ -55,22 +55,25 @@ jobs:
         id: check
         shell: pwsh
         run: |
-          $releaseTag = "mower-${{ matrix.branch }}-win64"
-          $currentSha = "${{ github.sha }}"
+          try {
+            $releaseTag = "mower-${{ matrix.branch }}-win64"
+            $currentSha = "${{ github.sha }}"
 
-          # 检查 Release 是否存在，并取出上次构建的 commit SHA
-          $release = gh release view $releaseTag --json body 2>$null
-          if ($LASTEXITCODE -eq 0) {
-            $json = $release | ConvertFrom-Json
-            $lastSha = $json.body -replace '.*@', ''
-            if ($lastSha -eq $currentSha) {
-              echo "skip=true" >> $env:GITHUB_OUTPUT
-              echo "✅ 上游 ${{ matrix.branch }} 无新提交 ($currentSha)，跳过构建"
-              exit 0
+            $release = gh release view $releaseTag --json body 2>$null
+            if ($LASTEXITCODE -eq 0) {
+              $json = $release | ConvertFrom-Json
+              $lastSha = $json.body -replace '.*@', ''
+              if ($lastSha -eq $currentSha) {
+                echo "skip=true" >> $env:GITHUB_OUTPUT
+                Write-Host "✅ 上游 ${{ matrix.branch }} 无新提交 ($currentSha)，跳过构建"
+                exit 0
+              }
+              Write-Host "📦 上游 ${{ matrix.branch }} 有更新: $lastSha → $currentSha"
+            } else {
+              Write-Host "🆕 首次构建 ${{ matrix.branch }}"
             }
-            echo "📦 上游 ${{ matrix.branch }} 有更新: $lastSha → $currentSha"
-          } else {
-            echo "🆕 首次构建 ${{ matrix.branch }}"
+          } catch {
+            Write-Host "⚠️ 无法获取 Release 信息，按首次构建处理"
           }
           echo "skip=false" >> $env:GITHUB_OUTPUT
 
@@ -147,7 +150,7 @@ jobs:
             --prerelease:$isPre `
             "${{ steps.version.outputs.artifact }}.zip"
 
-      # -------- 发送 Server 3 通知 --------
+      # -------- 发送 Server3 通知（成功） --------
       - name: Send notification (success)
         if: ${{ steps.check.outputs.skip != 'true' && success() }}
         shell: pwsh
@@ -159,13 +162,14 @@ jobs:
           $branch = "${{ matrix.branch }}"
           $tag = "mower-$branch-win64"
           $url = "https://github.com/citydirector/arkmower-builds/releases/tag/$tag"
-          $title = "Mower $branch 构建成功"
-          $desp = "✅ **Mower ($branch) 构建完成**`n`n- 提交: $sha`n- 下载: [$tag]($url)"
+          $body = @{
+            title = "Mower $branch 构建成功"
+            desp = "✅ Mower ($branch) 构建完成  - 提交: $sha  - 下载: $tag"
+          } | ConvertTo-Json -Compress
           Invoke-RestMethod -Uri "https://$env:SC3_UID.push.ft07.com/send/$env:SC3_SENDKEY.send" `
-            -Method POST `
-            -ContentType "application/json" `
-            -Body "{`"title`":`"$title`",`"desp`":`"$desp`"}"
+            -Method POST -ContentType "application/json" -Body $body
 
+      # -------- 发送 Server3 通知（失败） --------
       - name: Send notification (failure)
         if: ${{ failure() && steps.check.outputs.skip != 'true' }}
         shell: pwsh
@@ -176,9 +180,9 @@ jobs:
           $sha = "${{ github.sha }}".Substring(0,7)
           $branch = "${{ matrix.branch }}"
           $actionsUrl = "https://github.com/citydirector/arkmower-builds/actions/runs/${{ github.run_id }}"
-          $title = "Mower $branch 构建失败"
-          $desp = "❌ **Mower ($branch) 构建失败**`n`n- 提交: $sha`n- 日志: [$actionsUrl]($actionsUrl)"
+          $body = @{
+            title = "Mower $branch 构建失败"
+            desp = "❌ Mower ($branch) 构建失败  - 提交: $sha  - 日志: $actionsUrl"
+          } | ConvertTo-Json -Compress
           Invoke-RestMethod -Uri "https://$env:SC3_UID.push.ft07.com/send/$env:SC3_SENDKEY.send" `
-            -Method POST `
-            -ContentType "application/json" `
-            -Body "{`"title`":`"$title`",`"desp`":`"$desp`"}"
+            -Method POST -ContentType "application/json" -Body $body
