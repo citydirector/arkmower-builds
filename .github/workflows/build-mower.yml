@@ -133,17 +133,25 @@ jobs:
         shell: pwsh
         run: |
           gh release delete "${{ steps.version.outputs.release_tag }}" --yes --cleanup-tag 2>$null
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create Release
         if: steps.check.outputs.skip != 'true'
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          $isPre = "${{ matrix.branch }}" -ne "main"
-          gh release create "${{ steps.version.outputs.release_tag }}" `
-            --title "${{ steps.version.outputs.release_title }}" `
-            --notes "Auto build ${{ matrix.branch }}@${{ github.sha }}" `
-            --prerelease:$isPre `
-            "${{ steps.version.outputs.artifact }}.zip"
+          $args = @(
+            "${{ steps.version.outputs.release_tag }}",
+            "--title", "${{ steps.version.outputs.release_title }}",
+            "--notes", "Auto build ${{ matrix.branch }}@${{ github.sha }}"
+          )
+          if ("${{ matrix.branch }}" -ne "main") {
+            $args += "--prerelease"
+          }
+          $args += "${{ steps.version.outputs.artifact }}.zip"
+          gh release create @args
 
       # -------- 发送 Server3 通知（成功） --------
       - name: Send notification (success)
