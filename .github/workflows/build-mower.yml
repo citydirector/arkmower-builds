@@ -132,7 +132,9 @@ jobs:
         continue-on-error: true
         shell: pwsh
         run: |
-          gh release delete "${{ steps.version.outputs.release_tag }}" --yes --cleanup-tag 2>$null
+          gh release delete "${{ steps.version.outputs.release_tag }}" `
+            --repo $env:GITHUB_REPOSITORY `
+            --yes --cleanup-tag 2>$null
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -144,6 +146,7 @@ jobs:
         run: |
           $args = @(
             "${{ steps.version.outputs.release_tag }}",
+            "--repo", "$env:GITHUB_REPOSITORY",
             "--title", "${{ steps.version.outputs.release_title }}",
             "--notes", "Auto build ${{ matrix.branch }}@${{ github.sha }}"
           )
