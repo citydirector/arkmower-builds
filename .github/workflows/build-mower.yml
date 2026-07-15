@@ -129,14 +129,18 @@ jobs:
       # -------- 发布到 Releases --------
       - name: Remove old release
         if: steps.check.outputs.skip != 'true'
-        continue-on-error: true
         shell: pwsh
-        run: |
-          gh release delete "${{ steps.version.outputs.release_tag }}" `
-            --repo $env:GITHUB_REPOSITORY `
-            --yes --cleanup-tag 2>$null
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          try {
+            $url = "https://api.github.com/repos/$env:GITHUB_REPOSITORY/releases/tags/${{ steps.version.outputs.release_tag }}"
+            $release = Invoke-RestMethod -Uri $url -Headers @{ Authorization = "Bearer $env:GH_TOKEN" }
+            Invoke-RestMethod -Uri $release.url -Method DELETE -Headers @{ Authorization = "Bearer $env:GH_TOKEN" }
+            Write-Host "已删除旧 Release"
+          } catch {
+            Write-Host "无旧 Release 需要删除（首次构建）"
+          }
 
       - name: Create Release
         if: steps.check.outputs.skip != 'true'
