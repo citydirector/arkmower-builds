@@ -24,13 +24,15 @@ jobs:
       matrix:
         branch: [main, dev]
     runs-on: windows-latest
-    if: |
-      !cancelled() && (
-        github.event_name != 'workflow_dispatch' ||
-        github.event.inputs.branch == 'both' ||
-        github.event.inputs.branch == matrix.branch
-      )
     steps:
+      # Skip this matrix branch if user selected only one branch
+      - name: Check branch selection
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.branch != 'both' && github.event.inputs.branch != matrix.branch }}
+        shell: pwsh
+        run: |
+          Write-Host "Skipping ${{ matrix.branch }} (user selected ${{ github.event.inputs.branch }})"
+          exit 0
+
       - uses: actions/checkout@v4
         with:
           repository: ArkMowers/arknights-mower
